@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Drawer,
   DrawerClose,
@@ -71,6 +71,23 @@ const Wordle = () => {
     },
     [word]
   );
+
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.toUpperCase();
+    if (/^[A-Za-z]{1,5}$/.test(value)) {
+      setCurrentGuess(value);
+    }
+  };
+
+  const handleInputFocus = () => {
+    if (inputRef.current) inputRef.current.focus();
+  };
+
+  useEffect(() => {
+    handleInputFocus(); // Automatically focus input on mount
+  }, []);
 
   useEffect(() => {
     fetchNewWord();
@@ -165,6 +182,16 @@ const Wordle = () => {
 
   return (
     <main className="flex justify-center items-center">
+      {/* Hidden Input */}
+      <input
+        ref={inputRef}
+        type="text"
+        value={currentGuess}
+        onChange={handleInputChange}
+        onBlur={handleInputFocus} // Keep input focused
+        maxLength={5}
+        className="absolute w-0 h-0 opacity-0 pointer-events-none"
+      />
       <div className="my-16 flex flex-col items-center">
         <h1 className="text-4xl font-satisfy text-center mb-4">Wordle</h1>
 
