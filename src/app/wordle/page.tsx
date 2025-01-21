@@ -93,13 +93,13 @@ const Wordle = () => {
     ];
 
     return (
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-1">
         {rows.map((row, i) => (
-          <div key={`keyboard-row-${i}`} className="flex justify-center gap-2">
+          <div key={`keyboard-row-${i}`} className="flex justify-center gap-[0.5rem] md:gap-2 ">
             {row.map((key) => (
               <button
                 key={key}
-                className={`px-3 py-2 rounded font-bold text-white 
+                className={`px-2 py-2 rounded font-bold text-white 
               ${
                 key === "Enter"
                   ? "bg-teal-700"
