@@ -13,6 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import Confetti from "react-confetti";
 import LoadingScreen from "@/components/screens/LoadingScreen";
+import ErrorScreen from "@/components/screens/ErrorScreen";
 
 const Wordle = () => {
   const [word, setWord] = useState<string>("");
@@ -21,6 +22,7 @@ const Wordle = () => {
   const [gameStatus, setGameStatus] = useState<"playing" | "won" | "lost">(
     "playing"
   );
+  const [letterStatus,setLetterStatus] = useState<{[key: string]: "present"|"absent"| "correct"| undefined}>({})
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isOpen, setIsOpen] = useState<boolean>(false);
@@ -45,7 +47,22 @@ const Wordle = () => {
     if (currentGuess.length === 5) {
       setGuesses((prev) => {
         const newGuesses = [...prev, currentGuess];
-        // Check game status synchronously
+
+        // Update letter statuses
+        const newStatus = { ...letterStatus };
+        currentGuess.split("").forEach((letter, index) => {
+          if (word[index] === letter) {
+            newStatus[letter] = "correct";
+          } else if (word.includes(letter) && newStatus[letter] !== "correct") {
+            newStatus[letter] = "present";
+          } else if (!word.includes(letter)) {
+            newStatus[letter] = "absent";
+          }
+        });
+
+        setLetterStatus(newStatus);
+
+        // Check game status
         if (currentGuess === word) {
           setGameStatus("won");
           setIsOpen(true);
@@ -53,12 +70,14 @@ const Wordle = () => {
           setGameStatus("lost");
           setIsOpen(true);
         }
+
         return newGuesses;
       });
       setCurrentGuess("");
       window.scrollTo(0, 0);
     }
-  }, [currentGuess, word]);
+  }, [currentGuess, word, letterStatus]);
+
 
   const getLetterStatus = useCallback(
     (letter: string, position: number, guess: string) => {
@@ -95,23 +114,31 @@ const Wordle = () => {
     return (
       <div className="flex flex-col gap-1">
         {rows.map((row, i) => (
-          <div key={`keyboard-row-${i}`} className="flex justify-center gap-[0.5rem] md:gap-2 ">
-            {row.map((key) => (
-              <button
-                key={key}
-                className={`px-2 py-2 rounded font-bold text-white 
-              ${
-                key === "Enter"
-                  ? "bg-teal-700"
-                  : key === "Backspace"
-                  ? "bg-red-700"
-                  : "bg-gray-700"
-              } hover:opacity-90`}
-                onClick={() => handleVirtualKeyPress(key)}
-              >
-                {key === "Backspace" ? "⌫" : key === "Enter" ? "⏎" : key}
-              </button>
-            ))}
+          <div
+            key={`keyboard-row-${i}`}
+            className="flex justify-center gap-[0.5rem] md:gap-2"
+          >
+            {row.map((key) => {
+              const status = letterStatus[key];
+              const bgColor =
+                status === "correct"
+                  ? "bg-green-500"
+                  : status === "present"
+                  ? "bg-yellow-500"
+                  : status === "absent"
+                  ? "bg-gray-500"
+                  : "bg-gray-700";
+
+              return (
+                <button
+                  key={key}
+                  className={`px-2 py-2 rounded font-bold text-white ${bgColor} hover:opacity-90`}
+                  onClick={() => handleVirtualKeyPress(key)}
+                >
+                  {key === "Backspace" ? "⌫" : key === "Enter" ? "⏎" : key}
+                </button>
+              );
+            })}
           </div>
         ))}
       </div>
@@ -207,7 +234,36 @@ const Wordle = () => {
   };
 
   if (loading) return <LoadingScreen />;
-  if (error) return <div>Error: {error}</div>;
+  if (error)
+    return (
+      <ErrorScreen
+        message={
+          "It seems like we couldn’t generate the word. This might be a connection issue or a glitch on our end. 🕵️‍♂️"
+        }
+        ctaBtn={
+          <Button
+            className="bg-teal-800 text-white hover:bg-teal-600 my-4 mx-auto"
+            onClick={resetGame}
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth="1.5"
+              stroke="currentColor"
+              className="size-6"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"
+              />
+            </svg>{" "}
+            Try Again
+          </Button>
+        }
+      />
+    );
 
   return (
     <main className="flex justify-center items-center">
