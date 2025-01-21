@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Drawer,
   DrawerClose,
@@ -56,6 +56,7 @@ const Wordle = () => {
         return newGuesses;
       });
       setCurrentGuess("");
+      window.scrollTo(0, 0);
     }
   }, [currentGuess, word]);
 
@@ -72,22 +73,50 @@ const Wordle = () => {
     [word]
   );
 
-  const inputRef = useRef<HTMLInputElement>(null);
+  const handleVirtualKeyPress = (key: string) => {
+    if (gameStatus !== "playing") return;
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value.toUpperCase();
-    if (/^[A-Za-z]{1,5}$/.test(value)) {
-      setCurrentGuess(value);
+    if (key === "Enter" && currentGuess.length === 5) {
+      submitGuess();
+    } else if (key === "Backspace") {
+      setCurrentGuess((prev) => prev.slice(0, -1));
+    } else if (currentGuess.length < 5 && /^[A-Za-z]$/.test(key)) {
+      setCurrentGuess((prev) => (prev + key).toUpperCase());
     }
   };
 
-  const handleInputFocus = () => {
-    if (inputRef.current) inputRef.current.focus();
-  };
+  const renderKeyboard = () => {
+    const rows = [
+      ["Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P"],
+      ["A", "S", "D", "F", "G", "H", "J", "K", "L"],
+      ["Z", "X", "C", "V", "B", "N", "M", "Backspace", "Enter"],
+    ];
 
-  useEffect(() => {
-    handleInputFocus(); // Automatically focus input on mount
-  }, []);
+    return (
+      <div className="flex flex-col gap-2">
+        {rows.map((row, i) => (
+          <div key={`keyboard-row-${i}`} className="flex justify-center gap-2">
+            {row.map((key) => (
+              <button
+                key={key}
+                className={`px-3 py-2 rounded font-bold text-white 
+              ${
+                key === "Enter"
+                  ? "bg-teal-700"
+                  : key === "Backspace"
+                  ? "bg-red-700"
+                  : "bg-gray-700"
+              } hover:opacity-90`}
+                onClick={() => handleVirtualKeyPress(key)}
+              >
+                {key === "Backspace" ? "⌫" : key === "Enter" ? "⏎" : key}
+              </button>
+            ))}
+          </div>
+        ))}
+      </div>
+    );
+  };
 
   useEffect(() => {
     fetchNewWord();
@@ -182,16 +211,6 @@ const Wordle = () => {
 
   return (
     <main className="flex justify-center items-center">
-      {/* Hidden Input */}
-      <input
-        ref={inputRef}
-        type="text"
-        value={currentGuess}
-        onChange={handleInputChange}
-        onBlur={handleInputFocus} // Keep input focused
-        maxLength={5}
-        className="absolute w-0 h-0 opacity-0 pointer-events-none"
-      />
       <div className="my-16 flex flex-col items-center">
         <h1 className="text-4xl font-satisfy text-center mb-4">Wordle</h1>
 
@@ -229,6 +248,7 @@ const Wordle = () => {
           </svg>{" "}
           Reset word
         </Button>
+        <div>{renderKeyboard()}</div>
       </div>
 
       <Drawer open={isOpen} onOpenChange={setIsOpen}>
