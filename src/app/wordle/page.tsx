@@ -232,6 +232,7 @@ const Wordle = () => {
     setGameStatus("playing");
     setGuesses([]);
     setLetterStatus({})
+    setIsOpen(false)
   };
 
   if (loading) return <LoadingScreen />;
