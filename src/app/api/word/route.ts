@@ -28,7 +28,8 @@ const getRandomWord = async () => {
           word.tags &&
           !word.tags.includes("n") &&
           !word.tags.includes("prop") &&
-          !word.tags.includes("pl")
+          !word.tags.includes("pl") &&
+          /^[a-zA-Z]+$/.test(word.word)
       )
       .map((word: DataMuseWord) => word.word.toLowerCase())
       .filter((word: string) => word.length === 5);
