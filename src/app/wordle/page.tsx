@@ -421,12 +421,12 @@ const Wordle = () => {
         )}
 
         <Dialog open={showDef} onOpenChange={setShowDef}>
-          <DialogContent className="bg-black">
+          <DialogContent className="bg-black text-left">
             <DialogHeader>
-              <DialogTitle>
+              <DialogTitle className="text-left">
                 {word}
                 {transcription && (
-                  <p className="text-sm font-normal mt-1">
+                  <p className="text-sm font-normal mt-1 text-left">
                     <span>Transcription:</span> {transcription}
                   </p>
                 )}
@@ -440,7 +440,7 @@ const Wordle = () => {
                   </Button>
                 )}
               </DialogTitle>
-              <DialogDescription>
+              <DialogDescription className="text-left">
                 {definitions ? (
                   <ul>
                     {definitions.map((def, index) => (
