@@ -10,6 +10,13 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "@/components/ui/drawer";
+import {
+  Dialog,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogContent,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import Confetti from "react-confetti";
 import LoadingScreen from "@/components/screens/LoadingScreen";
@@ -22,10 +29,13 @@ const Wordle = () => {
   const [gameStatus, setGameStatus] = useState<"playing" | "won" | "lost">(
     "playing"
   );
-  const [letterStatus,setLetterStatus] = useState<{[key: string]: "present"|"absent"| "correct"| undefined}>({})
+  const [letterStatus, setLetterStatus] = useState<{
+    [key: string]: "present" | "absent" | "correct" | undefined;
+  }>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isOpen, setIsOpen] = useState<boolean>(false);
+  const [invalidWord, setInvalidWord] = useState<boolean>(false);
   const maxAttempts = 6;
 
   const fetchNewWord = async () => {
@@ -43,41 +53,66 @@ const Wordle = () => {
     }
   };
 
-  const submitGuess = useCallback(() => {
+  const checkWord = async (word: string): Promise<boolean> => {
+    try {
+      const response = await fetch(
+        `https://api.datamuse.com/words?sp=${word}&max=1`
+      );
+      const result = await response.json();
+
+      // If the API returns an exact match for the word, it is valid
+      return (
+        result.length > 0 && result[0].word.toLowerCase() === word.toLowerCase()
+      );
+    } catch (error) {
+      console.error("Error checking word:", error);
+      return false;
+    }
+  };
+
+  const submitGuess = useCallback(async () => {
+    const isValidWord = await checkWord(currentGuess);
+    // if(checkWord(currentGuess))
     if (currentGuess.length === 5) {
-      setGuesses((prev) => {
-        const newGuesses = [...prev, currentGuess];
+      if (isValidWord) {
+        setGuesses((prev) => {
+          const newGuesses = [...prev, currentGuess];
 
-        // Update letter statuses
-        const newStatus = { ...letterStatus };
-        currentGuess.split("").forEach((letter, index) => {
-          if (word[index] === letter) {
-            newStatus[letter] = "correct";
-          } else if (word.includes(letter) && newStatus[letter] !== "correct") {
-            newStatus[letter] = "present";
-          } else if (!word.includes(letter)) {
-            newStatus[letter] = "absent";
+          // Update letter statuses
+          const newStatus = { ...letterStatus };
+          currentGuess.split("").forEach((letter, index) => {
+            if (word[index] === letter) {
+              newStatus[letter] = "correct";
+            } else if (
+              word.includes(letter) &&
+              newStatus[letter] !== "correct"
+            ) {
+              newStatus[letter] = "present";
+            } else if (!word.includes(letter)) {
+              newStatus[letter] = "absent";
+            }
+          });
+
+          setLetterStatus(newStatus);
+
+          // Check game status
+          if (currentGuess === word) {
+            setGameStatus("won");
+            setIsOpen(true);
+          } else if (newGuesses.length === maxAttempts) {
+            setGameStatus("lost");
+            setIsOpen(true);
           }
+
+          return newGuesses;
         });
-
-        setLetterStatus(newStatus);
-
-        // Check game status
-        if (currentGuess === word) {
-          setGameStatus("won");
-          setIsOpen(true);
-        } else if (newGuesses.length === maxAttempts) {
-          setGameStatus("lost");
-          setIsOpen(true);
-        }
-
-        return newGuesses;
-      });
-      setCurrentGuess("");
-      window.scrollTo(0, 0);
+        setCurrentGuess("");
+        window.scrollTo(0, 0);
+      } else {
+        setInvalidWord(true);
+      }
     }
   }, [currentGuess, word, letterStatus]);
-
 
   const getLetterStatus = useCallback(
     (letter: string, position: number, guess: string) => {
@@ -231,8 +266,8 @@ const Wordle = () => {
     setCurrentGuess("");
     setGameStatus("playing");
     setGuesses([]);
-    setLetterStatus({})
-    setIsOpen(false)
+    setLetterStatus({});
+    setIsOpen(false);
   };
 
   if (loading) return <LoadingScreen />;
@@ -309,9 +344,21 @@ const Wordle = () => {
         <div>{renderKeyboard()}</div>
       </div>
 
+      <Dialog open={invalidWord} onOpenChange={setInvalidWord}>
+        <DialogContent className="sm:max-w-[425px] bg-black">
+          <DialogHeader>
+            <DialogTitle>Invalid Word</DialogTitle>
+            <DialogDescription>
+              Oops! The word you entered isn’t valid. Make sure it’s a real word
+              before submitting your guess.
+            </DialogDescription>
+          </DialogHeader>
+        </DialogContent>
+      </Dialog>
+
       <Drawer open={isOpen} onOpenChange={setIsOpen}>
         {gameStatus === "won" ? (
-          <DrawerContent>
+          <DrawerContent className="bg-black">
             <Confetti />
             <DrawerHeader>
               <DrawerTitle>🎉 Congratulations! 🎉</DrawerTitle>
@@ -333,7 +380,7 @@ const Wordle = () => {
             </DrawerFooter>
           </DrawerContent>
         ) : (
-          <DrawerContent>
+          <DrawerContent className="bg-black">
             <DrawerHeader>
               <DrawerTitle>😢 Better Luck Next Time!</DrawerTitle>
               <DrawerDescription>
