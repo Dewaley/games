@@ -2,25 +2,44 @@
 
 import { useState, useEffect, useCallback } from "react";
 import {
-  Drawer,
-  DrawerClose,
-  DrawerContent,
-  DrawerDescription,
-  DrawerFooter,
-  DrawerHeader,
-  DrawerTitle,
-} from "@/components/ui/drawer";
-import {
   Dialog,
   DialogHeader,
   DialogTitle,
   DialogDescription,
   DialogContent,
+  DialogClose,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import Confetti from "react-confetti";
 import LoadingScreen from "@/components/screens/LoadingScreen";
 import ErrorScreen from "@/components/screens/ErrorScreen";
+
+type Definition = {
+  definition: string;
+  example?: string;
+};
+
+type Phonetic = {
+  text: string;
+  audio?: string;
+};
+
+type Meaning = {
+  partOfSpeech: string;
+  definitions: Definition[];
+};
+
+type ApiResponse = {
+  word: string;
+  meanings: Meaning[];
+  phonetics: Phonetic[];
+};
+
+type SimplifiedDefinition = {
+  partOfSpeech: string;
+  definition: string;
+};
 
 const Wordle = () => {
   const [word, setWord] = useState<string>("");
@@ -29,13 +48,20 @@ const Wordle = () => {
   const [gameStatus, setGameStatus] = useState<"playing" | "won" | "lost">(
     "playing"
   );
+  const [definitions, setDefinitions] = useState<SimplifiedDefinition[] | null>(
+    null
+  );
+  const [transcription, setTranscription] = useState<string | null>(null);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [letterStatus, setLetterStatus] = useState<{
     [key: string]: "present" | "absent" | "correct" | undefined;
   }>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [defError, setDefError] = useState<string | null>(null);
   const [isOpen, setIsOpen] = useState<boolean>(false);
   const [invalidWord, setInvalidWord] = useState<boolean>(false);
+  const [showDef, setShowDef] = useState<boolean>(false);
   const maxAttempts = 6;
 
   const fetchNewWord = async () => {
@@ -260,6 +286,60 @@ const Wordle = () => {
     return rows;
   };
 
+  const getDefinition = useCallback(async (): Promise<
+    SimplifiedDefinition[] | null
+  > => {
+    const url = `https://api.dictionaryapi.dev/api/v2/entries/en/${word}`;
+
+    try {
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`Error: ${response.status} ${response.statusText}`);
+      }
+
+      const data: ApiResponse[] = await response.json();
+
+      if (Array.isArray(data) && data.length > 0) {
+        const entry = data[0];
+
+        // Handle phonetics
+        const phonetic = entry.phonetics.find((p) => p.text && p.audio);
+        setTranscription(phonetic?.text || null);
+        setAudioUrl(phonetic?.audio || null);
+
+        // Handle definitions
+        const meanings = entry.meanings || [];
+        const definitions: SimplifiedDefinition[] = meanings.flatMap(
+          (meaning) =>
+            meaning.definitions.map((def) => ({
+              partOfSpeech: meaning.partOfSpeech,
+              definition: def.definition,
+            }))
+        );
+
+        return definitions;
+      } else {
+        throw new Error("No definitions found.");
+      }
+    } catch (error) {
+      console.error("Failed to fetch definition:", (error as Error).message);
+      throw error;
+    }
+  }, [word]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const defs = await getDefinition();
+        setDefinitions(defs);
+        setDefError(null);
+      } catch (err) {
+        setDefError((err as Error).message);
+        setDefinitions(null);
+      }
+    })();
+  }, [getDefinition]);
+
   const resetGame = async () => {
     setLoading(true);
     fetchNewWord();
@@ -306,15 +386,108 @@ const Wordle = () => {
     <main className="flex justify-center items-center">
       <div className="my-16 flex flex-col items-center">
         <h1 className="text-4xl font-satisfy text-center mb-4">Wordle</h1>
-        <p className="text-2xl font-satisfy text-center mb-4">
-          Dedicated to my big baby... hehehe
-        </p>
 
         {gameStatus !== "playing" && (
-          <div className="text-xl font-bold mb-4 text-center">
-            {gameStatus === "won" ? "Congratulations!" : `The word was ${word}`}
+          <div className="mb-4 flex flex-col gap-1">
+            <p className="text-xl font-bold text-center">
+              {gameStatus === "won"
+                ? "Congratulations!"
+                : `Try better next time!`}
+            </p>
+            <p className="text-xs text-center">
+              The hidden word was{" "}
+              <span
+                className="inline-flex items-center gap-1 hover:underline cursor-pointer"
+                onClick={() => setShowDef(true)}
+              >
+                {word}
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth="1.5"
+                  stroke="currentColor"
+                  className="size-4"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z"
+                  />
+                </svg>
+              </span>
+            </p>
           </div>
         )}
+
+        <Dialog open={showDef} onOpenChange={setShowDef}>
+          <DialogContent className="bg-black">
+            <DialogHeader>
+              <DialogTitle>
+                {word}
+                {transcription && (
+                  <p className="text-sm font-normal mt-1">
+                    <span>Transcription:</span> {transcription}
+                  </p>
+                )}
+                {audioUrl && (
+                  <Button
+                    className="text-sm px-0 py-1 text-white"
+                    variant={"link"}
+                    onClick={() => new Audio(audioUrl).play()}
+                  >
+                    🔊 Play Pronunciation
+                  </Button>
+                )}
+              </DialogTitle>
+              <DialogDescription>
+                {definitions ? (
+                  <ul>
+                    {definitions.map((def, index) => (
+                      <li key={index}>
+                        <strong>{def.partOfSpeech}</strong>: {def.definition}
+                      </li>
+                    ))}
+                  </ul>
+                ) : defError ? (
+                  <span>
+                    Sorry pal, we couldn&lsquo;t find definitions for the word
+                    you were looking for. You can try the search again at later
+                    time or head to the web instead.
+                  </span>
+                ) : (
+                  <span>Loading...</span>
+                )}
+              </DialogDescription>
+            </DialogHeader>
+          </DialogContent>
+        </Dialog>
+
+        {/* <div>
+          <h1>{word}</h1>
+          {defError && <p>Error: {defError}</p>}
+          {transcription && (
+            <p>
+              <strong>Transcription:</strong> {transcription}
+            </p>
+          )}
+          {audioUrl && (
+            <button onClick={() => new Audio(audioUrl).play()}>
+              🔊 Play Pronunciation
+            </button>
+          )}
+          {definitions ? (
+            <ul>
+              {definitions.map((def, index) => (
+                <li key={index}>
+                  <strong>{def.partOfSpeech}</strong>: {def.definition}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            !defError && <p>Loading...</p>
+          )}
+        </div> */}
 
         <div className="grid grid-rows-6 gap-2">{renderGrid()}</div>
 
@@ -370,52 +543,52 @@ const Wordle = () => {
         </DialogContent>
       </Dialog>
 
-      <Drawer open={isOpen} onOpenChange={setIsOpen}>
+      <Dialog open={isOpen} onOpenChange={setIsOpen}>
         {gameStatus === "won" ? (
-          <DrawerContent className="bg-black">
+          <DialogContent className="sm:max-w-[425px] bg-black">
             <Confetti />
-            <DrawerHeader>
-              <DrawerTitle>🎉 Congratulations! 🎉</DrawerTitle>
-              <DrawerDescription>
+            <DialogHeader>
+              <DialogTitle>🎉 Congratulations! 🎉</DialogTitle>
+              <DialogDescription>
                 {`You guessed the word in ${guesses.length} attempts. Great job!`}
-              </DrawerDescription>
-            </DrawerHeader>
-            <DrawerFooter>
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
               <div className="flex gap-2">
                 <Button className="w-fit" onClick={resetGame}>
                   Play again
                 </Button>
-                <DrawerClose>
+                <DialogClose>
                   <Button className="bg-red-800 text-white hover:bg-red-600">
                     Close
                   </Button>
-                </DrawerClose>
+                </DialogClose>
               </div>
-            </DrawerFooter>
-          </DrawerContent>
+            </DialogFooter>
+          </DialogContent>
         ) : (
-          <DrawerContent className="bg-black">
-            <DrawerHeader>
-              <DrawerTitle>😢 Better Luck Next Time!</DrawerTitle>
-              <DrawerDescription>
+          <DialogContent className="bg-black">
+            <DialogHeader>
+              <DialogTitle>😢 Better Luck Next Time!</DialogTitle>
+              <DialogDescription>
                 {`The word was ${word}. Don't worry, you'll get it next time!`}
-              </DrawerDescription>
-            </DrawerHeader>
-            <DrawerFooter>
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
               <div className="flex gap-2">
                 <Button className="w-fit" onClick={resetGame}>
                   Try another wordle
                 </Button>
-                <DrawerClose>
+                <DialogClose>
                   <Button className="bg-red-800 text-white hover:bg-red-600">
                     Close
                   </Button>
-                </DrawerClose>
+                </DialogClose>
               </div>
-            </DrawerFooter>
-          </DrawerContent>
+            </DialogFooter>
+          </DialogContent>
         )}
-      </Drawer>
+      </Dialog>
     </main>
   );
 };
