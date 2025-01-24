@@ -306,6 +306,9 @@ const Wordle = () => {
     <main className="flex justify-center items-center">
       <div className="my-16 flex flex-col items-center">
         <h1 className="text-4xl font-satisfy text-center mb-4">Wordle</h1>
+        <p className="text-2xl font-satisfy text-center mb-4">
+          Dedicated to my big baby... hehehe
+        </p>
 
         {gameStatus !== "playing" && (
           <div className="text-xl font-bold mb-4 text-center">
