@@ -21,6 +21,7 @@ const getRandomWord = async () => {
       `${BASE_URL}?sp=${randomLetter}????&md=p&max=100`
     );
     const words = await response.json();
+    const romanNumeralRegex = /^(?=[IVXLCDM]+$)/i;
 
     const validWords = words
       .filter(
@@ -29,7 +30,8 @@ const getRandomWord = async () => {
           !word.tags.includes("n") &&
           !word.tags.includes("prop") &&
           !word.tags.includes("pl") &&
-          /^[a-zA-Z]+$/.test(word.word)
+          /^[a-zA-Z]+$/.test(word.word) &&
+          !romanNumeralRegex.test(word.word)
       )
       .map((word: DataMuseWord) => word.word.toLowerCase())
       .filter((word: string) => word.length === 5);
